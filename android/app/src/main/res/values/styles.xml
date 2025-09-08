@@ -1,6 +1,0 @@
-<resources>
-  <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
-  </style>
-  <style name="Theme.App.SplashScreen" parent="Theme.SplashScreen">
-  </style>
-</resources>
