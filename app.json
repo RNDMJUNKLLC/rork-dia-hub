@@ -1,5 +1,8 @@
 {
   "expo": {
+    "build": {
+      "packageManager": "npm"
+    },
     "name": "Dia-Hub",
     "slug": "diabetes-supplies-tracker-fv00def",
     "version": "1.0.0",
@@ -44,9 +47,7 @@
           "icon": "./local/assets/notification_icon.png",
           "color": "#ffffff",
           "defaultChannel": "default",
-          "sounds": [
-            "./local/assets/notification_sound.wav"
-          ],
+          "sounds": ["./local/assets/notification_sound.wav"],
           "enableBackgroundRemoteNotifications": false
         }
       ]
