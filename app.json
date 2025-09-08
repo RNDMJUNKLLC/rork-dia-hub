@@ -1,8 +1,5 @@
 {
   "expo": {
-    "build": {
-      "packageManager": "npm"
-    },
     "name": "Dia-Hub",
     "slug": "diabetes-supplies-tracker-fv00def",
     "version": "1.0.0",
