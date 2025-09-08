@@ -195,7 +195,7 @@ export class NotificationService {
         await this.scheduleNotification(
           'Expiration Warning',
           `${supply.name} expires in ${daysUntilExpiration} day${daysUntilExpiration === 1 ? '' : 's'}`,
-          { seconds: Math.max(1, Math.floor((triggerDate.getTime() - now.getTime()) / 1000)) } as Notifications.TimeIntervalTriggerInput,
+          { type: 'timeInterval', seconds: Math.max(1, Math.floor((triggerDate.getTime() - now.getTime()) / 1000)) } as Notifications.TimeIntervalTriggerInput,
           identifier
         );
       }
@@ -223,7 +223,7 @@ export class NotificationService {
           await this.scheduleNotification(
             'Device Reminder',
             `${item.supplyName} will expire in ${hoursUntilExpiration} hours`,
-            { seconds: Math.max(1, Math.floor((triggerDate.getTime() - now.getTime()) / 1000)) } as Notifications.TimeIntervalTriggerInput,
+            { type: 'timeInterval', seconds: Math.max(1, Math.floor((triggerDate.getTime() - now.getTime()) / 1000)) } as Notifications.TimeIntervalTriggerInput,
             identifier
           );
         }
@@ -235,7 +235,7 @@ export class NotificationService {
         await this.scheduleNotification(
           'Device Expired',
           `${item.supplyName} has expired and should be replaced`,
-          { seconds: Math.max(1, Math.floor((expirationDate.getTime() - now.getTime()) / 1000)) } as Notifications.TimeIntervalTriggerInput,
+          { type: 'timeInterval', seconds: Math.max(1, Math.floor((expirationDate.getTime() - now.getTime()) / 1000)) } as Notifications.TimeIntervalTriggerInput,
           identifier
         );
       }
@@ -248,7 +248,7 @@ export class NotificationService {
           await this.scheduleNotification(
             'Grace Period Ending',
             `${item.supplyName} grace period is ending - replace immediately`,
-            { seconds: Math.max(1, Math.floor((gracePeriodEndDate.getTime() - now.getTime()) / 1000)) } as Notifications.TimeIntervalTriggerInput,
+            { type: 'timeInterval', seconds: Math.max(1, Math.floor((gracePeriodEndDate.getTime() - now.getTime()) / 1000)) } as Notifications.TimeIntervalTriggerInput,
             identifier
           );
         }
