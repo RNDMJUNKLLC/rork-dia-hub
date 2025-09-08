@@ -90,10 +90,17 @@ export const [SuppliesProvider, useSupplies] = createContextHook(() => {
     saveSupplies([...supplies, newSupply]);
   };
 
-  const updateSupply = (id: string, updates: Partial<Supply>) => {
+  const updateSupply = async (id: string, updates: Partial<Supply>) => {
+    const oldSupply = supplies.find(s => s.id === id);
     const updatedSupplies = supplies.map(supply =>
       supply.id === id ? { ...supply, ...updates } : supply
     );
+    
+    // If quantity increased, clear low stock notification tracking for this supply
+    if (oldSupply && updates.quantity && updates.quantity > oldSupply.quantity) {
+      await notificationService.clearSupplyNotificationTracking(id);
+    }
+    
     saveSupplies(updatedSupplies);
   };
 
@@ -287,7 +294,9 @@ export const [SuppliesProvider, useSupplies] = createContextHook(() => {
       await Promise.all([
         AsyncStorage.removeItem(SUPPLIES_STORAGE_KEY),
         AsyncStorage.removeItem(TIMERS_STORAGE_KEY),
-        AsyncStorage.removeItem(IN_USE_STORAGE_KEY)
+        AsyncStorage.removeItem(IN_USE_STORAGE_KEY),
+        notificationService.cancelAllNotifications(),
+        notificationService.resetNotificationTracking()
       ]);
       setSupplies([]);
       setTimers([]);
@@ -319,9 +328,7 @@ export const [SuppliesProvider, useSupplies] = createContextHook(() => {
     getActiveTimers,
     getActiveInUseItems,
     clearAllData,
-    // Notification methods
-    updateNotifications: () => notificationService.updateAllNotifications(supplies, inUseItems),
-    getNotificationSettings: notificationService.getSettings.bind(notificationService),
-    updateNotificationSettings: notificationService.updateSettings.bind(notificationService)
+    // Notification methods - notifications work automatically
+    updateNotifications: () => notificationService.updateAllNotifications(supplies, inUseItems)
   };
 });

@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Supply, InUseItem } from '@/types/supplies';
 
 const NOTIFICATION_SETTINGS_KEY = 'notification-settings';
+const NOTIFICATION_TRACKING_KEY = 'notification-tracking';
 
 export interface NotificationSettings {
   lowStockEnabled: boolean;
@@ -12,6 +13,11 @@ export interface NotificationSettings {
   lowStockThreshold: number;
   expirationDays: number;
   deviceReminderHours: number;
+}
+
+export interface NotificationTracker {
+  sentNotifications: Set<string>;
+  lastUpdateTime: number;
 }
 
 const DEFAULT_SETTINGS: NotificationSettings = {
@@ -37,6 +43,7 @@ Notifications.setNotificationHandler({
 export class NotificationService {
   private static instance: NotificationService;
   private settings: NotificationSettings = DEFAULT_SETTINGS;
+  private sentNotifications: Set<string> = new Set();
   private isInitialized = false;
 
   static getInstance(): NotificationService {
@@ -56,13 +63,74 @@ export class NotificationService {
         this.settings = { ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) };
       }
 
+      // Load notification tracking
+      await this.loadNotificationTracking();
+
       // Request permissions
       await this.requestPermissions();
+      
+      // Set up notification received listener
+      this.setupNotificationListeners();
       
       this.isInitialized = true;
       console.log('Notification service initialized');
     } catch (error) {
       console.error('Failed to initialize notification service:', error);
+    }
+  }
+
+  setupNotificationListeners(): void {
+    // Listen for when notifications are received/interacted with
+    Notifications.addNotificationReceivedListener((notification) => {
+      const identifier = notification.request.identifier;
+      if (identifier) {
+        // Mark immediate notifications as acknowledged when received
+        this.sentNotifications.add(identifier);
+        this.saveNotificationTracking();
+        console.log('Notification received and marked as sent:', identifier);
+      }
+    });
+
+    Notifications.addNotificationResponseReceivedListener((response) => {
+      const identifier = response.notification.request.identifier;
+      if (identifier) {
+        // Mark as acknowledged when user interacts with it
+        this.sentNotifications.add(identifier);
+        this.saveNotificationTracking();
+        console.log('Notification interacted with and marked as sent:', identifier);
+      }
+    });
+  }
+
+  async loadNotificationTracking(): Promise<void> {
+    try {
+      const trackingData = await AsyncStorage.getItem(NOTIFICATION_TRACKING_KEY);
+      if (trackingData) {
+        const parsed = JSON.parse(trackingData);
+        this.sentNotifications = new Set(parsed.sentNotifications || []);
+        
+        // Clear tracking if it's older than 24 hours to allow re-notifications
+        const lastUpdate = parsed.lastUpdateTime || 0;
+        const now = Date.now();
+        if (now - lastUpdate > 24 * 60 * 60 * 1000) {
+          this.sentNotifications.clear();
+          await this.saveNotificationTracking();
+        }
+      }
+    } catch (error) {
+      console.error('Error loading notification tracking:', error);
+    }
+  }
+
+  async saveNotificationTracking(): Promise<void> {
+    try {
+      const trackingData = {
+        sentNotifications: Array.from(this.sentNotifications),
+        lastUpdateTime: Date.now()
+      };
+      await AsyncStorage.setItem(NOTIFICATION_TRACKING_KEY, JSON.stringify(trackingData));
+    } catch (error) {
+      console.error('Error saving notification tracking:', error);
     }
   }
 
@@ -115,6 +183,12 @@ export class NotificationService {
       return null;
     }
 
+    // Check if this notification has already been sent
+    if (identifier && this.sentNotifications.has(identifier)) {
+      console.log('Notification already sent, skipping:', identifier);
+      return null;
+    }
+
     try {
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
@@ -126,6 +200,12 @@ export class NotificationService {
         trigger,
         identifier,
       });
+      
+      // Mark as sent if it's an immediate notification (no trigger)
+      if (identifier && !trigger) {
+        this.sentNotifications.add(identifier);
+        await this.saveNotificationTracking();
+      }
       
       console.log('Notification scheduled:', notificationId, title);
       return notificationId;
@@ -166,13 +246,32 @@ export class NotificationService {
     );
 
     for (const supply of lowStockSupplies) {
-      const identifier = `low-stock-${supply.id}`;
-      await this.scheduleNotification(
-        'Low Stock Alert',
-        `${supply.name} is running low (${supply.quantity} remaining)`,
-        null, // Immediate notification
-        identifier
-      );
+      const identifier = `low-stock-${supply.id}-${supply.quantity}`;
+      
+      // Only send if we haven't already sent a notification for this specific quantity
+      if (!this.sentNotifications.has(identifier)) {
+        await this.scheduleNotification(
+          'Low Stock Alert',
+          `${supply.name} is running low (${supply.quantity} remaining)`,
+          null, // Immediate notification
+          identifier
+        );
+      }
+    }
+
+    // Clean up old low stock notifications for supplies that are no longer low
+    const currentLowStockIds = new Set(lowStockSupplies.map(s => s.id));
+    const toRemove = Array.from(this.sentNotifications).filter(id => 
+      id.startsWith('low-stock-') && 
+      !currentLowStockIds.has(id.split('-')[2])
+    );
+    
+    for (const id of toRemove) {
+      this.sentNotifications.delete(id);
+    }
+    
+    if (toRemove.length > 0) {
+      await this.saveNotificationTracking();
     }
   }
 
@@ -258,19 +357,17 @@ export class NotificationService {
 
   // Update all notifications based on current data
   async updateAllNotifications(supplies: Supply[], inUseItems: InUseItem[]): Promise<void> {
-    console.log('Updating all notifications...');
+    console.log('Updating notifications intelligently...');
     
-    // Cancel existing notifications
-    await this.cancelAllNotifications();
-    
-    // Schedule new notifications
+    // Don't cancel all notifications - let them manage themselves intelligently
+    // Only schedule new notifications that haven't been sent yet
     await Promise.all([
       this.scheduleLowStockNotifications(supplies),
       this.scheduleExpirationNotifications(supplies),
       this.scheduleDeviceTimerNotifications(inUseItems)
     ]);
     
-    console.log('All notifications updated');
+    console.log('Notifications updated intelligently');
   }
 
   // Cancel notifications for a specific supply
@@ -279,6 +376,35 @@ export class NotificationService {
       this.cancelNotification(`low-stock-${supplyId}`),
       this.cancelNotification(`expiration-${supplyId}`)
     ]);
+    
+    // Clear from sent tracking for low stock notifications for this supply
+    const toRemove = Array.from(this.sentNotifications).filter(id => 
+      id.startsWith(`low-stock-${supplyId}-`)
+    );
+    
+    for (const id of toRemove) {
+      this.sentNotifications.delete(id);
+    }
+    
+    if (toRemove.length > 0) {
+      await this.saveNotificationTracking();
+    }
+  }
+
+  // Clear sent notification tracking for a specific supply (when user restocks)
+  async clearSupplyNotificationTracking(supplyId: string): Promise<void> {
+    const toRemove = Array.from(this.sentNotifications).filter(id => 
+      id.includes(`-${supplyId}-`) || id.endsWith(`-${supplyId}`)
+    );
+    
+    for (const id of toRemove) {
+      this.sentNotifications.delete(id);
+    }
+    
+    if (toRemove.length > 0) {
+      await this.saveNotificationTracking();
+      console.log(`Cleared notification tracking for supply ${supplyId}`);
+    }
   }
 
   // Cancel notifications for a specific in-use item
@@ -288,6 +414,13 @@ export class NotificationService {
       this.cancelNotification(`device-expiry-${itemId}`),
       this.cancelNotification(`grace-period-end-${itemId}`)
     ]);
+  }
+
+  // Reset notification tracking (useful for testing or data reset)
+  async resetNotificationTracking(): Promise<void> {
+    this.sentNotifications.clear();
+    await this.saveNotificationTracking();
+    console.log('Notification tracking reset');
   }
 }
 

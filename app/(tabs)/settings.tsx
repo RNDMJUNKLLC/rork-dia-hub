@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } f
 import { Trash2, Moon, Info } from 'lucide-react-native';
 import { useSupplies } from '@/hooks/supplies-store';
 import { useTheme } from '@/hooks/theme-store';
-import NotificationSettingsCard from '@/components/NotificationSettingsCard';
 
 export default function SettingsScreen() {
   const { clearAllData } = useSupplies();
@@ -33,8 +32,6 @@ export default function SettingsScreen() {
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
         </View>
-
-        <NotificationSettingsCard />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Appearance</Text>
