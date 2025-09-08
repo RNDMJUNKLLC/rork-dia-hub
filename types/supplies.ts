@@ -1,4 +1,4 @@
-export type SupplyCategory = 'insulin' | 'cgm' | 'test-strips' | 'lancets' | 'infusion-sets' | 'pump' | 'other';
+export type SupplyCategory = 'insulin' | 'cgm' | 'test-strips' | 'lancets' | 'needles' | 'infusion-sets' | 'pump' | 'other';
 
 export interface Supply {
   id: string;
@@ -49,6 +49,7 @@ export const CATEGORY_LABELS = {
   cgm: 'CGM/Sensors',
   'test-strips': 'Test Strips',
   lancets: 'Lancets',
+  needles: 'Needles',
   'infusion-sets': 'Infusion Sets',
   pump: 'Insulin Pump',
   other: 'Other Supplies'
@@ -59,6 +60,7 @@ export const CATEGORY_COLORS = {
   cgm: '#7B68EE',
   'test-strips': '#20B2AA',
   lancets: '#FF6B6B',
+  needles: '#32CD32',
   'infusion-sets': '#4ECDC4',
   pump: '#FF8C00',
   other: '#95A5A6'
