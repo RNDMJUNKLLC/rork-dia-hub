@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Package, Settings, Activity } from "lucide-react-native";
+import { Package, Settings, Activity, Clock } from "lucide-react-native";
 import React from "react";
 import { SuppliesProvider } from "@/hooks/supplies-store";
 import { useTheme } from "@/hooks/theme-store";
@@ -41,6 +41,14 @@ function TabLayout() {
           title: "In Use",
           headerTitle: "Active Items",
           tabBarIcon: ({ color }) => <Activity size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: "History",
+          headerTitle: "Activity History",
+          tabBarIcon: ({ color }) => <Clock size={24} color={color} />,
         }}
       />
       <Tabs.Screen

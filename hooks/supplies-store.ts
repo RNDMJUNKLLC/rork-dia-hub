@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Supply, Timer, InUseItem, SupplyCategory } from '@/types/supplies';
 import { notificationService } from './notifications';
+import { historyService } from './history-store';
 
 const SUPPLIES_STORAGE_KEY = 'diabetes-supplies';
 const TIMERS_STORAGE_KEY = 'diabetes-timers';
@@ -20,6 +21,9 @@ export const [SuppliesProvider, useSupplies] = createContextHook(() => {
       try {
         // Initialize notification service
         await notificationService.initialize();
+        
+        // Initialize history service
+        await historyService.initialize();
         
         const [suppliesData, timersData, inUseData] = await Promise.all([
           AsyncStorage.getItem(SUPPLIES_STORAGE_KEY),
@@ -82,11 +86,20 @@ export const [SuppliesProvider, useSupplies] = createContextHook(() => {
   };
 
   // Supply management functions
-  const addSupply = (supply: Omit<Supply, 'id'>) => {
+  const addSupply = async (supply: Omit<Supply, 'id'>) => {
     const newSupply: Supply = {
       ...supply,
       id: Date.now().toString()
     };
+    
+    // Log the addition
+    await historyService.logSupplyAdded(
+      newSupply.name,
+      newSupply.category,
+      newSupply.quantity,
+      newSupply.id
+    );
+    
     saveSupplies([...supplies, newSupply]);
   };
 
@@ -96,22 +109,57 @@ export const [SuppliesProvider, useSupplies] = createContextHook(() => {
       supply.id === id ? { ...supply, ...updates } : supply
     );
     
-    // If quantity increased, clear low stock notification tracking for this supply
-    if (oldSupply && updates.quantity && updates.quantity > oldSupply.quantity) {
-      await notificationService.clearSupplyNotificationTracking(id);
+    if (oldSupply) {
+      // Log quantity changes specifically
+      if (updates.quantity !== undefined && updates.quantity !== oldSupply.quantity) {
+        await historyService.logQuantityChanged(
+          oldSupply.name,
+          oldSupply.quantity,
+          updates.quantity,
+          id
+        );
+      }
+      
+      // Log other updates
+      const changes: string[] = [];
+      if (updates.name && updates.name !== oldSupply.name) changes.push(`name: ${updates.name}`);
+      if (updates.expirationDate && updates.expirationDate !== oldSupply.expirationDate) changes.push('expiration date');
+      if (updates.notes && updates.notes !== oldSupply.notes) changes.push('notes');
+      if (updates.warningThreshold && updates.warningThreshold !== oldSupply.warningThreshold) changes.push('warning threshold');
+      
+      if (changes.length > 0 && updates.quantity === undefined) {
+        await historyService.logSupplyUpdated(oldSupply.name, changes.join(', '), id);
+      }
+      
+      // If quantity increased, clear low stock notification tracking for this supply
+      if (updates.quantity && updates.quantity > oldSupply.quantity) {
+        await notificationService.clearSupplyNotificationTracking(id);
+      }
     }
     
     saveSupplies(updatedSupplies);
   };
 
   const deleteSupply = async (id: string) => {
+    const supply = supplies.find(s => s.id === id);
+    
+    // Log the deletion
+    if (supply) {
+      await historyService.addEvent(
+        'supply_deleted',
+        'Supply Deleted',
+        `Deleted ${supply.name} from inventory`,
+        { supplyId: id, supplyName: supply.name, supplyCategory: supply.category }
+      );
+    }
+    
     // Cancel notifications for this supply before deleting
     await notificationService.cancelSupplyNotifications(id);
     saveSupplies(supplies.filter(supply => supply.id !== id));
   };
 
   // Start using an item (moves to in-use and decrements quantity)
-  const startUsingItem = (supplyId: string, details: InUseItem['details'], gracePeriodHours?: number) => {
+  const startUsingItem = async (supplyId: string, details: InUseItem['details'], gracePeriodHours?: number) => {
     const supply = supplies.find(s => s.id === supplyId);
     if (!supply || supply.quantity <= 0) return null;
 
@@ -148,12 +196,21 @@ export const [SuppliesProvider, useSupplies] = createContextHook(() => {
       details
     };
 
+    // Log the start of using item
+    await historyService.logItemStartedUsing(
+      supply.name,
+      supply.category,
+      newInUseItem.id,
+      supply.id
+    );
+
     saveInUseItems([...inUseItems, newInUseItem]);
     return newInUseItem;
   };
 
   // Update insulin volume
-  const updateInsulinVolume = (inUseId: string, volumeUsed: number) => {
+  const updateInsulinVolume = async (inUseId: string, volumeUsed: number) => {
+    const item = inUseItems.find(i => i.id === inUseId);
     const updatedItems = inUseItems.map(item => {
       if (item.id === inUseId && item.details.type === 'insulin') {
         const newRemaining = Math.max(0, item.details.remainingVolume - volumeUsed);
@@ -167,11 +224,24 @@ export const [SuppliesProvider, useSupplies] = createContextHook(() => {
       }
       return item;
     });
+    
+    // Log insulin usage
+    if (item && item.details.type === 'insulin') {
+      const newRemaining = Math.max(0, item.details.remainingVolume - volumeUsed);
+      await historyService.logInsulinVolumeUpdated(
+        item.supplyName,
+        volumeUsed,
+        newRemaining,
+        inUseId
+      );
+    }
+    
     saveInUseItems(updatedItems);
   };
 
   // End device early
-  const endDeviceEarly = (inUseId: string) => {
+  const endDeviceEarly = async (inUseId: string) => {
+    const item = inUseItems.find(i => i.id === inUseId);
     const updatedItems = inUseItems.map(item => {
       if (item.id === inUseId && item.details.type === 'device') {
         return {
@@ -185,11 +255,33 @@ export const [SuppliesProvider, useSupplies] = createContextHook(() => {
       }
       return item;
     });
+    
+    // Log early ending
+    if (item) {
+      await historyService.logDeviceEndedEarly(
+        item.supplyName,
+        'Ended manually by user',
+        inUseId
+      );
+    }
+    
     saveInUseItems(updatedItems);
   };
 
   // Remove in-use item (when empty or expired)
   const removeInUseItem = async (inUseId: string) => {
+    const item = inUseItems.find(i => i.id === inUseId);
+    
+    // Log item removal
+    if (item) {
+      await historyService.addEvent(
+        'item_stopped_using',
+        'Stopped Using Item',
+        `Finished using ${item.supplyName}`,
+        { itemId: inUseId, supplyName: item.supplyName, supplyCategory: item.category }
+      );
+    }
+    
     // Cancel notifications for this item before removing
     await notificationService.cancelInUseItemNotifications(inUseId);
     saveInUseItems(inUseItems.filter(item => item.id !== inUseId));
@@ -291,12 +383,16 @@ export const [SuppliesProvider, useSupplies] = createContextHook(() => {
   // Clear all data
   const clearAllData = async () => {
     try {
+      // Log data clearing before actually clearing
+      await historyService.logDataCleared();
+      
       await Promise.all([
         AsyncStorage.removeItem(SUPPLIES_STORAGE_KEY),
         AsyncStorage.removeItem(TIMERS_STORAGE_KEY),
         AsyncStorage.removeItem(IN_USE_STORAGE_KEY),
         notificationService.cancelAllNotifications(),
-        notificationService.resetNotificationTracking()
+        notificationService.resetNotificationTracking(),
+        historyService.clearHistory() // Clear history too
       ]);
       setSupplies([]);
       setTimers([]);
