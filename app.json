@@ -3,6 +3,7 @@
     "name": "Dia-Hub",
     "slug": "diabetes-supplies-tracker-fv00def",
     "version": "1.1.0",
+    "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
@@ -12,6 +13,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.rork.diabetes-supplies-tracker-fv00def",
@@ -29,9 +33,7 @@
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.SCHEDULE_EXACT_ALARM"
       ],
-      "newArchEnabled": true,
-      "compileSdkVersion": 35,
-      "targetSdkVersion": 35
+      "newArchEnabled": true
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
