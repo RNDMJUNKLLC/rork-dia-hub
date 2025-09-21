@@ -12,11 +12,11 @@ import {
 import { Bell, AlertTriangle } from 'lucide-react-native';
 import { useTheme } from '@/hooks/theme-store';
 import { useSupplies } from '@/hooks/supplies-store';
-import { NotificationSettings } from '@/hooks/notifications';
+import { NotificationSettings, notificationService } from '@/hooks/notifications';
 
 export default function NotificationSettingsCard() {
   const { isDarkMode } = useTheme();
-  const { getNotificationSettings, updateNotificationSettings, updateNotifications } = useSupplies();
+  const { updateNotifications } = useSupplies();
   const [settings, setSettings] = useState<NotificationSettings>({
     lowStockEnabled: true,
     expirationEnabled: true,
@@ -33,7 +33,7 @@ export default function NotificationSettingsCard() {
 
   const loadSettings = async () => {
     try {
-      const currentSettings = await getNotificationSettings();
+      const currentSettings = await notificationService.getSettings();
       setSettings(currentSettings);
     } catch (error) {
       console.error('Error loading notification settings:', error);
@@ -47,7 +47,7 @@ export default function NotificationSettingsCard() {
     setSettings(newSettings);
     
     try {
-      await updateNotificationSettings({ [key]: value });
+      await notificationService.updateSettings({ [key]: value });
       await updateNotifications();
     } catch (error) {
       console.error('Error updating notification settings:', error);
