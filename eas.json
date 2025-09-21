@@ -7,15 +7,24 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "node": "20.15.1"
+      "node": "20.15.1",
+      "cache": {
+        "disabled": false
+      }
     },
     "preview": {
       "distribution": "internal",
-      "node": "20.15.1"
+      "node": "20.15.1",
+      "cache": {
+        "disabled": false
+      }
     },
     "production": {
       "autoIncrement": true,
-      "node": "20.15.1"
+      "node": "20.15.1",
+      "cache": {
+        "disabled": false
+      }
     }
   },
   "submit": {
