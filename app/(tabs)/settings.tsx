@@ -1,13 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
-import { Trash2, Moon, Info, ExternalLink } from 'lucide-react-native';
+import { Trash2, Moon, Info, ExternalLink, HelpCircle } from 'lucide-react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { useSupplies } from '@/hooks/supplies-store';
 import { useTheme } from '@/hooks/theme-store';
+import { useOnboarding } from '@/hooks/onboarding';
+import { OnboardingModal } from '@/components/OnboardingModal';
 
 export default function SettingsScreen() {
   const { clearAllData } = useSupplies();
   const { isDarkMode, toggleDarkMode, colors } = useTheme();
+  const { resetOnboarding } = useOnboarding();
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const handleClearData = () => {
     Alert.alert(
@@ -29,6 +33,14 @@ export default function SettingsScreen() {
 
   const handleOpenWebsite = async () => {
     await WebBrowser.openBrowserAsync('https://dia-hub.org/#feedback');
+  };
+
+  const handleShowOnboarding = () => {
+    setShowOnboarding(true);
+  };
+
+  const handleOnboardingClose = () => {
+    setShowOnboarding(false);
   };
 
   return (
@@ -71,7 +83,7 @@ export default function SettingsScreen() {
             <Info size={20} color={colors.textSecondary} />
             <View style={styles.infoContent}>
               <Text style={[styles.infoLabel, { color: colors.text }]}>Version</Text>
-              <Text style={[styles.infoValue, { color: colors.textSecondary }]}>0.1.0</Text>
+              <Text style={[styles.infoValue, { color: colors.textSecondary }]}>1.1.0</Text>
             </View>
           </View>
 
@@ -79,8 +91,18 @@ export default function SettingsScreen() {
             <ExternalLink size={20} color={colors.textSecondary} />
             <Text style={[styles.websiteButtonText, { color: colors.text }]}>Visit Official Website</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.websiteButton, { backgroundColor: colors.cardBackground }]} onPress={handleShowOnboarding}>
+            <HelpCircle size={20} color={colors.textSecondary} />
+            <Text style={[styles.websiteButtonText, { color: colors.text }]}>Show Welcome Guide</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
+      
+      <OnboardingModal 
+        visible={showOnboarding}
+        onClose={handleOnboardingClose}
+      />
     </View>
   );
 }

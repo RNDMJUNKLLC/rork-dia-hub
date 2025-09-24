@@ -3,12 +3,20 @@ import { Package, Settings, Activity, Clock } from "lucide-react-native";
 import React from "react";
 import { SuppliesProvider } from "@/hooks/supplies-store";
 import { useTheme } from "@/hooks/theme-store";
+import { OnboardingModal } from "@/components/OnboardingModal";
+import { useOnboarding } from "@/hooks/onboarding";
 
 function TabLayout() {
   const { colors } = useTheme();
+  const { isOnboardingCompleted, isLoading, completeOnboarding } = useOnboarding();
+
+  const handleOnboardingClose = () => {
+    completeOnboarding();
+  };
   
   return (
-    <Tabs
+    <>
+      <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
@@ -60,6 +68,12 @@ function TabLayout() {
         }}
       />
     </Tabs>
+      
+      <OnboardingModal 
+        visible={!isLoading && !isOnboardingCompleted}
+        onClose={handleOnboardingClose}
+      />
+    </>
   );
 }
 
