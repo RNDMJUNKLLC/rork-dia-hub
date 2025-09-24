@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
-import { Trash2, Moon, Info } from 'lucide-react-native';
+import { Trash2, Moon, Info, ExternalLink } from 'lucide-react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { useSupplies } from '@/hooks/supplies-store';
 import { useTheme } from '@/hooks/theme-store';
 
@@ -24,6 +25,10 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  const handleOpenWebsite = async () => {
+    await WebBrowser.openBrowserAsync('https://dia-hub.org/#feedback');
   };
 
   return (
@@ -69,6 +74,11 @@ export default function SettingsScreen() {
               <Text style={[styles.infoValue, { color: colors.textSecondary }]}>0.1.0</Text>
             </View>
           </View>
+
+          <TouchableOpacity style={[styles.websiteButton, { backgroundColor: colors.cardBackground }]} onPress={handleOpenWebsite}>
+            <ExternalLink size={20} color={colors.textSecondary} />
+            <Text style={[styles.websiteButtonText, { color: colors.text }]}>Visit Official Website</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -156,6 +166,20 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: 16,
     color: '#8E8E93',
+  },
+  websiteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  websiteButtonText: {
+    fontSize: 16,
+    color: '#000',
+    fontWeight: '500' as const,
   },
 
 });
